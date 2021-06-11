@@ -18,3 +18,7 @@ Enchancement proposals:
 - Path finding optimization
 - Indexes to improve pgr_dejkstra(...) perfomance
 - Redundant reverse edges insertions?
+
+UPD:
+- Using of A* function on pre-routed airports would be faster
+- Even better is to avoid pre-routing and to use paired vertices from main_airports table as input? (compute g(x) and h(x) on the fly?)
