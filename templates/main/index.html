@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Hello World</title>
+    <script src="https://unpkg.com/react@17/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <!-- Don't use this in production: -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style type="text/css">
+        .hdr{
+            position: fixed;
+            top: 0px;
+            left: 0px;
+            padding: 10px;
+            background-color: #eee;
+            width: 100%;
+        }
+
+        TABLE{
+            margin-top: 150px;
+        }
+
+        INPUT, BUTTON, SPAN{
+            display: inline-block;
+            margin: 3px;
+        }
+
+        TR:hover TD{
+            background-color: #eee;
+        }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="text/babel">
+      class App extends React.Component{
+        state = {
+          airports: [],
+          page: 1,
+          next: null,
+          count: 0,
+          isLoading: true,
+          nearest_airport: '',
+          max_distance: '',
+          start_airport: '',
+          end_airport: '',
+          nearest_radius: '',
+          mode: "all"
+        }
+
+        props = {
+            nearest_radius: 0
+        }
+
+        getAirports = () => {
+          axios({
+            method: "GET",
+            url: `/airports?page=` + this.state.page
+          }).then((response) => {
+              
+              console.log(response.data.results.features);
+              this.setState({
+                  airports: response.data.results.features,
+                  isLoading: false,
+                  next: response.data.next,
+                  count: response.data.count,
+                  mode: "all"
+              });
+          })
+        }
+
+        changePage = (num) => {
+            if (
+                (this.state.airports.next !== null && num == 1) ||
+                (this.state.page > 1 && num == -1)
+            ){
+                this.setState({page: this.state.page + num}, () => {
+                    this.getAirports();
+                });
+            }
+        }
+
+        setNearest = (name) => {
+            this.setState({nearest_airport: name});
+        }
+
+        setStart = (name) => {
+            this.setState({start_airport: name});
+        }
+
+        setEnd = (name) => {
+            this.setState({end_airport: name});
+        }
+
+        changeNearestRadius = (event) => {
+            this.setState({nearest_radius: event.target.value});
+        }
+
+        changeMaxDistance = (event) => {
+            this.setState({max_distance: event.target.value});
+        }
+
+        findNearest = () => {
+            axios.get("/airports_partial/nearest", {
+                params: {
+                    nearest_airport: this.state.nearest_airport,
+                    nearest_radius: this.state.nearest_radius
+                }
+            }).then((response) => {
+                this.setState({
+                    airports:response.data.features,
+                    mode:"partial"
+                });
+            });
+        }
+
+        findRoute = () => {
+            axios.get("/airports_partial/path", {
+                params: {
+                    start_airport: this.state.start_airport,
+                    end_airport: this.state.end_airport,
+                    max_distance: this.state.max_distance
+                    
+                }
+            }).then((response) => {
+                this.setState({
+                    airports:response.data.features,
+                    mode:"partial"
+                });
+            });
+        }
+
+        componentDidMount() {
+            this.getAirports()
+        }
+
+        render(){
+          if (this.state.isLoading)
+            return(<p>Loading...</p>)
+          return(
+            <>
+            <div className="hdr">
+            {this.state.mode == "all" && 
+            <>
+            <button onClick={() => this.changePage(-1)}>
+                PREV
+            </button>
+            <button onClick={() => this.changePage(1)}>
+                NEXT
+            </button>
+            <span>Current page: {this.state.page} of {Math.ceil(this.state.count/100)}</span>
+            </>
+            }
+            {this.state.mode == "partial" && 
+            <>
+            <button onClick={() => this.getAirports()}>
+                Back to list of all airports
+            </button>
+            </>
+            }
+            <p>
+                <input placeholder="Airport name" value={this.state.nearest_airport}/> 
+                <input placeholder="Radius, kilometers" value={this.state.nearest_radius} onChange={this.changeNearestRadius}/> 
+                <button onClick={() => this.findNearest()}>Find nearest airports</button>
+            </p>
+            <p>
+                <input placeholder="Start airport name" value={this.state.start_airport}/> 
+                <input placeholder="End airport name" value={this.state.end_airport}/>  
+                <input placeholder="Max distance, kilometers" value={this.state.max_distance} onChange={this.changeMaxDistance}/>  
+                <button onClick={() => this.findRoute()}>Find route</button>
+            </p>
+            </div>
+            <table width="100%">
+              <thead>
+              <tr align="left">
+                <th>ID</th>
+                <th>Name</th>
+                <th>LAT</th>
+                <th>LNG</th>
+                {this.state.mode == "all" &&
+                <th>Actions (set as...)</th>
+                }
+              </tr>
+              </thead>
+              <tbody>
+              {
+              this.state.airports.map(airport => {
+                return(
+                    <tr key={airport.properties.id}>
+                    <td>{airport.id}</td>
+                    <td>{airport.properties.name}</td>
+                    <td>{airport.geometry.coordinates[0]}</td>
+                    <td>{airport.geometry.coordinates[1]}</td>
+                    {this.state.mode == "all" &&
+                    <td>
+                        <button onClick={() => this.setNearest(airport.properties.name)}>Nearest</button>
+                        <button onClick={() => this.setStart(airport.properties.name)}>Start</button>
+                        <button onClick={() => this.setEnd(airport.properties.name)}>End</button>
+                    </td>
+                    }
+                    </tr>
+                );
+              })
+              }
+              </tbody>
+              </table>
+              </>
+          )
+        }
+      }
+
+      ReactDOM.render(<App/>, document.getElementById('root')
+      );
+
+    </script>
+  </body>
+</html>
